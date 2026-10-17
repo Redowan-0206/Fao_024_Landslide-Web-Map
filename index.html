@@ -1,0 +1,2224 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="stylesheet" href="css/leaflet.css">
+        <link rel="stylesheet" href="css/L.Control.Layers.Tree.css">
+        <link rel="stylesheet" href="css/qgis2web.css">
+        <link rel="stylesheet" href="css/fontawesome-all.min.css">
+        <link rel="stylesheet" href="css/leaflet.photon.css">
+        <style>
+        #map {
+            width: 1316px;
+            height: 879px;
+        }
+        </style>
+        <title></title>
+    </head>
+    <body>
+        <div id="map">
+        </div>
+        <script src="js/qgis2web_expressions.js"></script>
+        <script src="js/leaflet.js"></script>
+        <script src="js/L.Control.Layers.Tree.min.js"></script>
+        <script src="js/leaflet.rotatedMarker.js"></script>
+        <script src="js/leaflet.pattern.js"></script>
+        <script src="js/leaflet-hash.js"></script>
+        <script src="js/Autolinker.min.js"></script>
+        <script src="js/rbush.min.js"></script>
+        <script src="js/labelgun.min.js"></script>
+        <script src="js/labels.js"></script>
+        <script src="js/leaflet.photon.js"></script>
+        <script src="data/Rohingya_Camp_1984_projectionshp_1.js"></script>
+        <script src="data/Rohingya_Camp_1984_projection_2.js"></script>
+        <script src="data/Camp_5_Team_E_Landslide_Extraction_20261015_123333_3.js"></script>
+        <script src="data/Camp_7_Team_B_Landslide_Extraction_20261015_113811_4.js"></script>
+        <script src="data/Camp_8W__Team_E_Landslide_Extraction_20261015_111127_5.js"></script>
+        <script src="data/Camp_9_Team_B_Landslide_Extraction_20261015_113229_6.js"></script>
+        <script src="data/Camp_10_Team_B_Landslide_Extraction_20261015_112357_7.js"></script>
+        <script src="data/Camp_14_Team_B_Landslide_Extraction_20261015_115810_8.js"></script>
+        <script src="data/Camp14_Team_B_Landslide_Extraction_20261015_115632_9.js"></script>
+        <script src="data/Camp_19_TeamC_Landslide_Extraction_20261015_125513_10.js"></script>
+        <script src="data/Camp_20Ext_Team_B_Landslide_Extraction_20261015_112826_11.js"></script>
+        <script src="data/Camp17_TeamA_Landslide_Extraction_20261015_131922_12.js"></script>
+        <script src="data/Camp18_Team_E_Landslide_Extraction_20261015_121454_13.js"></script>
+        <script src="data/Camp20_TeamA_Landslide_Extraction_20261015_130315_14.js"></script>
+        <script src="data/Camp11_TeamC_Landslide_Extraction_20261017_061619_15.js"></script>
+        <script>
+        var highlightLayer;
+        function highlightFeature(e) {
+            highlightLayer = e.target;
+
+            if (e.target.feature.geometry.type === 'LineString' || e.target.feature.geometry.type === 'MultiLineString') {
+              highlightLayer.setStyle({
+                color: 'rgba(255, 255, 0, 1.00)',
+              });
+            } else {
+              highlightLayer.setStyle({
+                fillColor: 'rgba(255, 255, 0, 1.00)',
+                fillOpacity: 1
+              });
+            }
+        }
+        var map = L.map('map', {
+            zoomControl:false, maxZoom:28, minZoom:1
+        }).fitBounds([[21.14631183081709,92.0940759478854],[21.22620548530457,92.21377978140482]]);
+        var hash = new L.Hash(map);
+        map.attributionControl.setPrefix('<a href="https://github.com/qgis2web/qgis2web" target="_blank">qgis2web</a> &middot; <a href="https://leafletjs.com" title="A JS library for interactive maps">Leaflet</a> &middot; <a href="https://qgis.org">QGIS</a>');
+        var autolinker = new Autolinker({truncate: {length: 30, location: 'smart'}});
+        // remove popup's row if "visible-with-data"
+        function removeEmptyRowsFromPopupContent(content, feature) {
+         var tempDiv = document.createElement('div');
+         tempDiv.innerHTML = content;
+         var rows = tempDiv.querySelectorAll('tr');
+         for (var i = 0; i < rows.length; i++) {
+             var td = rows[i].querySelector('td.visible-with-data');
+             var key = td ? td.id : '';
+             if (td && td.classList.contains('visible-with-data') && feature.properties[key] == null) {
+                 rows[i].parentNode.removeChild(rows[i]);
+             }
+         }
+         return tempDiv.innerHTML;
+        }
+        // modify popup if contains media
+        function addClassToPopupIfMedia(content, popup) {
+            var tempDiv = document.createElement('div');
+            tempDiv.innerHTML = content;
+            var imgTd = tempDiv.querySelector('td img');
+            if (imgTd) {
+                var src = imgTd.getAttribute('src');
+                if (/\.(jpg|jpeg|png|gif|bmp|webp|avif)$/i.test(src)) {
+                    popup._contentNode.classList.add('media');
+                    var img = popup._contentNode.querySelector('td img');
+                    if (img) {
+                        // If already loaded (cache), update immediately
+                        if (img.complete && img.naturalHeight > 0) {
+                            popup.update();
+                        } else {
+                            img.addEventListener('load', function() {
+                                popup.update();
+                            });
+                            img.addEventListener('error', function() {
+                                popup.update();
+                            });
+                        }
+                    }
+                } else if (/\.(mp3|wav|ogg|aac)$/i.test(src)) {
+                    var audio = document.createElement('audio');
+                    audio.controls = true;
+                    audio.src = src;
+                    imgTd.parentNode.replaceChild(audio, imgTd);
+                    popup._contentNode.classList.add('media');
+                    setTimeout(function() {
+                        popup.setContent(tempDiv.innerHTML);
+                        popup.update();
+                    }, 10);
+                } else if (/\.(mp4|webm|ogg|mov)$/i.test(src)) {
+                    var video = document.createElement('video');
+                    video.controls = true;
+                    video.src = src;
+                    video.style.width = "400px";
+                    video.style.height = "300px";
+                    video.style.maxHeight = "60vh";
+                    video.style.maxWidth = "60vw";
+                    imgTd.parentNode.replaceChild(video, imgTd);
+                    popup._contentNode.classList.add('media');
+                    // Aggiorna il popup quando il video carica i metadati
+                    video.addEventListener('loadedmetadata', function() {
+                        popup.update();
+                    });
+                    setTimeout(function() {
+                        popup.setContent(tempDiv.innerHTML);
+                        popup.update();
+                    }, 10);
+                } else {
+                    popup._contentNode.classList.remove('media');
+                }
+            } else {
+                popup._contentNode.classList.remove('media');
+            }
+        }
+        var zoomControl = L.control.zoom({
+            position: 'topleft'
+        }).addTo(map);
+        var bounds_group = new L.featureGroup([]);
+        function setBounds() {
+        }
+        map.createPane('pane_ESRISatellite_0');
+        map.getPane('pane_ESRISatellite_0').style.zIndex = 400;
+        var layer_ESRISatellite_0 = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            pane: 'pane_ESRISatellite_0',
+            opacity: 1.0,
+            attribution: '',
+            minZoom: 1,
+            maxZoom: 28,
+            minNativeZoom: 0,
+            maxNativeZoom: 20
+        });
+        layer_ESRISatellite_0;
+        map.addLayer(layer_ESRISatellite_0);
+        function pop_Rohingya_Camp_1984_projectionshp_1(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">OBJECTID_1</th>\
+                        <td class="visible-with-data" id="OBJECTID_1">' + (feature.properties['OBJECTID_1'] !== null ? autolinker.link(String(feature.properties['OBJECTID_1']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">OBJECTID</th>\
+                        <td class="visible-with-data" id="OBJECTID">' + (feature.properties['OBJECTID'] !== null ? autolinker.link(String(feature.properties['OBJECTID']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">OID_</th>\
+                        <td class="visible-with-data" id="OID_">' + (feature.properties['OID_'] !== null ? autolinker.link(String(feature.properties['OID_']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Name</th>\
+                        <td class="visible-with-data" id="Name">' + (feature.properties['Name'] !== null ? autolinker.link(String(feature.properties['Name']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">FolderPath</th>\
+                        <td class="visible-with-data" id="FolderPath">' + (feature.properties['FolderPath'] !== null ? autolinker.link(String(feature.properties['FolderPath']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">SymbolID</th>\
+                        <td class="visible-with-data" id="SymbolID">' + (feature.properties['SymbolID'] !== null ? autolinker.link(String(feature.properties['SymbolID']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">AltMode</th>\
+                        <td class="visible-with-data" id="AltMode">' + (feature.properties['AltMode'] !== null ? autolinker.link(String(feature.properties['AltMode']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Base</th>\
+                        <td class="visible-with-data" id="Base">' + (feature.properties['Base'] !== null ? autolinker.link(String(feature.properties['Base']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Clamped</th>\
+                        <td class="visible-with-data" id="Clamped">' + (feature.properties['Clamped'] !== null ? autolinker.link(String(feature.properties['Clamped']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Extruded</th>\
+                        <td class="visible-with-data" id="Extruded">' + (feature.properties['Extruded'] !== null ? autolinker.link(String(feature.properties['Extruded']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Snippet</th>\
+                        <td class="visible-with-data" id="Snippet">' + (feature.properties['Snippet'] !== null ? autolinker.link(String(feature.properties['Snippet']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">PopupInfo</th>\
+                        <td class="visible-with-data" id="PopupInfo">' + (feature.properties['PopupInfo'] !== null ? autolinker.link(String(feature.properties['PopupInfo']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Shape_Leng</th>\
+                        <td class="visible-with-data" id="Shape_Leng">' + (feature.properties['Shape_Leng'] !== null ? autolinker.link(String(feature.properties['Shape_Leng']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Shape_Le_1</th>\
+                        <td class="visible-with-data" id="Shape_Le_1">' + (feature.properties['Shape_Le_1'] !== null ? autolinker.link(String(feature.properties['Shape_Le_1']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">ID</th>\
+                        <td class="visible-with-data" id="ID">' + (feature.properties['ID'] !== null ? autolinker.link(String(feature.properties['ID']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Shape_Le_2</th>\
+                        <td class="visible-with-data" id="Shape_Le_2">' + (feature.properties['Shape_Le_2'] !== null ? autolinker.link(String(feature.properties['Shape_Le_2']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Shape_Area</th>\
+                        <td class="visible-with-data" id="Shape_Area">' + (feature.properties['Shape_Area'] !== null ? autolinker.link(String(feature.properties['Shape_Area']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Area</th>\
+                        <td class="visible-with-data" id="Area">' + (feature.properties['Area'] !== null ? autolinker.link(String(feature.properties['Area']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Rohingya_Camp_1984_projectionshp_1_0() {
+            return {
+                pane: 'pane_Rohingya_Camp_1984_projectionshp_1',
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(231,113,72,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Rohingya_Camp_1984_projectionshp_1');
+        map.getPane('pane_Rohingya_Camp_1984_projectionshp_1').style.zIndex = 401;
+        map.getPane('pane_Rohingya_Camp_1984_projectionshp_1').style['mix-blend-mode'] = 'normal';
+        var layer_Rohingya_Camp_1984_projectionshp_1 = new L.geoJson(json_Rohingya_Camp_1984_projectionshp_1, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Rohingya_Camp_1984_projectionshp_1',
+            layerName: 'layer_Rohingya_Camp_1984_projectionshp_1',
+            pane: 'pane_Rohingya_Camp_1984_projectionshp_1',
+            onEachFeature: pop_Rohingya_Camp_1984_projectionshp_1,
+            style: style_Rohingya_Camp_1984_projectionshp_1_0,
+        });
+        bounds_group.addLayer(layer_Rohingya_Camp_1984_projectionshp_1);
+        map.addLayer(layer_Rohingya_Camp_1984_projectionshp_1);
+        function pop_Rohingya_Camp_1984_projection_2(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">OBJECTID_1</th>\
+                        <td class="visible-with-data" id="OBJECTID_1">' + (feature.properties['OBJECTID_1'] !== null ? autolinker.link(String(feature.properties['OBJECTID_1']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">OBJECTID</th>\
+                        <td class="visible-with-data" id="OBJECTID">' + (feature.properties['OBJECTID'] !== null ? autolinker.link(String(feature.properties['OBJECTID']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">OID_</th>\
+                        <td class="visible-with-data" id="OID_">' + (feature.properties['OID_'] !== null ? autolinker.link(String(feature.properties['OID_']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Name</th>\
+                        <td class="visible-with-data" id="Name">' + (feature.properties['Name'] !== null ? autolinker.link(String(feature.properties['Name']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">FolderPath</th>\
+                        <td class="visible-with-data" id="FolderPath">' + (feature.properties['FolderPath'] !== null ? autolinker.link(String(feature.properties['FolderPath']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">SymbolID</th>\
+                        <td class="visible-with-data" id="SymbolID">' + (feature.properties['SymbolID'] !== null ? autolinker.link(String(feature.properties['SymbolID']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">AltMode</th>\
+                        <td class="visible-with-data" id="AltMode">' + (feature.properties['AltMode'] !== null ? autolinker.link(String(feature.properties['AltMode']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Base</th>\
+                        <td class="visible-with-data" id="Base">' + (feature.properties['Base'] !== null ? autolinker.link(String(feature.properties['Base']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Clamped</th>\
+                        <td class="visible-with-data" id="Clamped">' + (feature.properties['Clamped'] !== null ? autolinker.link(String(feature.properties['Clamped']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Extruded</th>\
+                        <td class="visible-with-data" id="Extruded">' + (feature.properties['Extruded'] !== null ? autolinker.link(String(feature.properties['Extruded']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Snippet</th>\
+                        <td class="visible-with-data" id="Snippet">' + (feature.properties['Snippet'] !== null ? autolinker.link(String(feature.properties['Snippet']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">PopupInfo</th>\
+                        <td class="visible-with-data" id="PopupInfo">' + (feature.properties['PopupInfo'] !== null ? autolinker.link(String(feature.properties['PopupInfo']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Shape_Leng</th>\
+                        <td class="visible-with-data" id="Shape_Leng">' + (feature.properties['Shape_Leng'] !== null ? autolinker.link(String(feature.properties['Shape_Leng']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Shape_Le_1</th>\
+                        <td class="visible-with-data" id="Shape_Le_1">' + (feature.properties['Shape_Le_1'] !== null ? autolinker.link(String(feature.properties['Shape_Le_1']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">ID</th>\
+                        <td class="visible-with-data" id="ID">' + (feature.properties['ID'] !== null ? autolinker.link(String(feature.properties['ID']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Shape_Le_2</th>\
+                        <td class="visible-with-data" id="Shape_Le_2">' + (feature.properties['Shape_Le_2'] !== null ? autolinker.link(String(feature.properties['Shape_Le_2']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Shape_Area</th>\
+                        <td class="visible-with-data" id="Shape_Area">' + (feature.properties['Shape_Area'] !== null ? autolinker.link(String(feature.properties['Shape_Area']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Area</th>\
+                        <td class="visible-with-data" id="Area">' + (feature.properties['Area'] !== null ? autolinker.link(String(feature.properties['Area']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Rohingya_Camp_1984_projection_2_0() {
+            return {
+                pane: 'pane_Rohingya_Camp_1984_projection_2',
+                opacity: 1,
+                color: 'rgba(228,18,190,1.0)',
+                dashArray: '',
+                lineCap: 'round',
+                lineJoin: 'round',
+                weight: 4.0,
+                fillOpacity: 0,
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Rohingya_Camp_1984_projection_2');
+        map.getPane('pane_Rohingya_Camp_1984_projection_2').style.zIndex = 402;
+        map.getPane('pane_Rohingya_Camp_1984_projection_2').style['mix-blend-mode'] = 'normal';
+        var layer_Rohingya_Camp_1984_projection_2 = new L.geoJson(json_Rohingya_Camp_1984_projection_2, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Rohingya_Camp_1984_projection_2',
+            layerName: 'layer_Rohingya_Camp_1984_projection_2',
+            pane: 'pane_Rohingya_Camp_1984_projection_2',
+            onEachFeature: pop_Rohingya_Camp_1984_projection_2,
+            style: style_Rohingya_Camp_1984_projection_2_0,
+        });
+        bounds_group.addLayer(layer_Rohingya_Camp_1984_projection_2);
+        map.addLayer(layer_Rohingya_Camp_1984_projection_2);
+        function pop_Camp_5_Team_E_Landslide_Extraction_20261015_123333_3(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Landslide ID</th>\
+                        <td class="visible-with-data" id="Landslide ID">' + (feature.properties['Landslide ID'] !== null ? autolinker.link(String(feature.properties['Landslide ID']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date and Time</th>\
+                        <td class="visible-with-data" id="Date and Time">' + (feature.properties['Date and Time'] !== null ? autolinker.link(String(feature.properties['Date and Time']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Address or local name (hill/community/para)</th>\
+                        <td class="visible-with-data" id="Address or local name (hill/community/para)">' + (feature.properties['Address or local name (hill/community/para)'] !== null ? autolinker.link(String(feature.properties['Address or local name (hill/community/para)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Latitude</th>\
+                        <td class="visible-with-data" id="Latitude">' + (feature.properties['Latitude'] !== null ? autolinker.link(String(feature.properties['Latitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Longitude</th>\
+                        <td class="visible-with-data" id="Longitude">' + (feature.properties['Longitude'] !== null ? autolinker.link(String(feature.properties['Longitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Elevation (m)</th>\
+                        <td class="visible-with-data" id="Elevation (m)">' + (feature.properties['Elevation (m)'] !== null ? autolinker.link(String(feature.properties['Elevation (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Slope angle (°)</th>\
+                        <td class="visible-with-data" id="Slope angle (°)">' + (feature.properties['Slope angle (°)'] !== null ? autolinker.link(String(feature.properties['Slope angle (°)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date/year(s) of historical movement</th>\
+                        <td class="visible-with-data" id="Date/year(s) of historical movement">' + (feature.properties['Date/year(s) of historical movement'] !== null ? autolinker.link(String(feature.properties['Date/year(s) of historical movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Length of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Length of displaced mass (m)">' + (feature.properties['Length of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Length of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Depth of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Depth of displaced mass (m)">' + (feature.properties['Depth of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Depth of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Width of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Width of displaced mass (m)">' + (feature.properties['Width of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Width of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Materials</th>\
+                        <td class="visible-with-data" id="Materials">' + (feature.properties['Materials'] !== null ? autolinker.link(String(feature.properties['Materials']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Type of movement</th>\
+                        <td class="visible-with-data" id="Type of movement">' + (feature.properties['Type of movement'] !== null ? autolinker.link(String(feature.properties['Type of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Distribution</th>\
+                        <td class="visible-with-data" id="Distribution">' + (feature.properties['Distribution'] !== null ? autolinker.link(String(feature.properties['Distribution']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Status</th>\
+                        <td class="visible-with-data" id="Status">' + (feature.properties['Status'] !== null ? autolinker.link(String(feature.properties['Status']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Style</th>\
+                        <td class="visible-with-data" id="Style">' + (feature.properties['Style'] !== null ? autolinker.link(String(feature.properties['Style']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Land use type (Primary)</th>\
+                        <td class="visible-with-data" id="Land use type (Primary)">' + (feature.properties['Land use type (Primary)'] !== null ? autolinker.link(String(feature.properties['Land use type (Primary)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Cause of movement</th>\
+                        <td class="visible-with-data" id="Cause of movement">' + (feature.properties['Cause of movement'] !== null ? autolinker.link(String(feature.properties['Cause of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Overall risk intensity of the site</th>\
+                        <td class="visible-with-data" id="Overall risk intensity of the site">' + (feature.properties['Overall risk intensity of the site'] !== null ? autolinker.link(String(feature.properties['Overall risk intensity of the site']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Camp_5_Team_E_Landslide_Extraction_20261015_123333_3_0() {
+            return {
+                pane: 'pane_Camp_5_Team_E_Landslide_Extraction_20261015_123333_3',
+                radius: 4.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(255,158,23,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Camp_5_Team_E_Landslide_Extraction_20261015_123333_3');
+        map.getPane('pane_Camp_5_Team_E_Landslide_Extraction_20261015_123333_3').style.zIndex = 403;
+        map.getPane('pane_Camp_5_Team_E_Landslide_Extraction_20261015_123333_3').style['mix-blend-mode'] = 'normal';
+        var layer_Camp_5_Team_E_Landslide_Extraction_20261015_123333_3 = new L.geoJson(json_Camp_5_Team_E_Landslide_Extraction_20261015_123333_3, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Camp_5_Team_E_Landslide_Extraction_20261015_123333_3',
+            layerName: 'layer_Camp_5_Team_E_Landslide_Extraction_20261015_123333_3',
+            pane: 'pane_Camp_5_Team_E_Landslide_Extraction_20261015_123333_3',
+            onEachFeature: pop_Camp_5_Team_E_Landslide_Extraction_20261015_123333_3,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Camp_5_Team_E_Landslide_Extraction_20261015_123333_3_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Camp_5_Team_E_Landslide_Extraction_20261015_123333_3);
+        map.addLayer(layer_Camp_5_Team_E_Landslide_Extraction_20261015_123333_3);
+        function pop_Camp_7_Team_B_Landslide_Extraction_20261015_113811_4(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Landslide ID</th>\
+                        <td class="visible-with-data" id="Landslide ID">' + (feature.properties['Landslide ID'] !== null ? autolinker.link(String(feature.properties['Landslide ID']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date and Time</th>\
+                        <td class="visible-with-data" id="Date and Time">' + (feature.properties['Date and Time'] !== null ? autolinker.link(String(feature.properties['Date and Time']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Address or local name (hill/community/para)</th>\
+                        <td class="visible-with-data" id="Address or local name (hill/community/para)">' + (feature.properties['Address or local name (hill/community/para)'] !== null ? autolinker.link(String(feature.properties['Address or local name (hill/community/para)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Latitude</th>\
+                        <td class="visible-with-data" id="Latitude">' + (feature.properties['Latitude'] !== null ? autolinker.link(String(feature.properties['Latitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Longitude</th>\
+                        <td class="visible-with-data" id="Longitude">' + (feature.properties['Longitude'] !== null ? autolinker.link(String(feature.properties['Longitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Elevation (m)</th>\
+                        <td class="visible-with-data" id="Elevation (m)">' + (feature.properties['Elevation (m)'] !== null ? autolinker.link(String(feature.properties['Elevation (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Slope angle (°)</th>\
+                        <td class="visible-with-data" id="Slope angle (°)">' + (feature.properties['Slope angle (°)'] !== null ? autolinker.link(String(feature.properties['Slope angle (°)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date/year(s) of historical movement</th>\
+                        <td class="visible-with-data" id="Date/year(s) of historical movement">' + (feature.properties['Date/year(s) of historical movement'] !== null ? autolinker.link(String(feature.properties['Date/year(s) of historical movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Length of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Length of displaced mass (m)">' + (feature.properties['Length of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Length of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Depth of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Depth of displaced mass (m)">' + (feature.properties['Depth of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Depth of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Width of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Width of displaced mass (m)">' + (feature.properties['Width of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Width of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Materials</th>\
+                        <td class="visible-with-data" id="Materials">' + (feature.properties['Materials'] !== null ? autolinker.link(String(feature.properties['Materials']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Type of movement</th>\
+                        <td class="visible-with-data" id="Type of movement">' + (feature.properties['Type of movement'] !== null ? autolinker.link(String(feature.properties['Type of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Distribution</th>\
+                        <td class="visible-with-data" id="Distribution">' + (feature.properties['Distribution'] !== null ? autolinker.link(String(feature.properties['Distribution']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Status</th>\
+                        <td class="visible-with-data" id="Status">' + (feature.properties['Status'] !== null ? autolinker.link(String(feature.properties['Status']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Style</th>\
+                        <td class="visible-with-data" id="Style">' + (feature.properties['Style'] !== null ? autolinker.link(String(feature.properties['Style']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Land use type (Primary)</th>\
+                        <td class="visible-with-data" id="Land use type (Primary)">' + (feature.properties['Land use type (Primary)'] !== null ? autolinker.link(String(feature.properties['Land use type (Primary)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Cause of movement</th>\
+                        <td class="visible-with-data" id="Cause of movement">' + (feature.properties['Cause of movement'] !== null ? autolinker.link(String(feature.properties['Cause of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Overall risk intensity of the site</th>\
+                        <td class="visible-with-data" id="Overall risk intensity of the site">' + (feature.properties['Overall risk intensity of the site'] !== null ? autolinker.link(String(feature.properties['Overall risk intensity of the site']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Camp_7_Team_B_Landslide_Extraction_20261015_113811_4_0() {
+            return {
+                pane: 'pane_Camp_7_Team_B_Landslide_Extraction_20261015_113811_4',
+                radius: 4.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(141,90,153,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Camp_7_Team_B_Landslide_Extraction_20261015_113811_4');
+        map.getPane('pane_Camp_7_Team_B_Landslide_Extraction_20261015_113811_4').style.zIndex = 404;
+        map.getPane('pane_Camp_7_Team_B_Landslide_Extraction_20261015_113811_4').style['mix-blend-mode'] = 'normal';
+        var layer_Camp_7_Team_B_Landslide_Extraction_20261015_113811_4 = new L.geoJson(json_Camp_7_Team_B_Landslide_Extraction_20261015_113811_4, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Camp_7_Team_B_Landslide_Extraction_20261015_113811_4',
+            layerName: 'layer_Camp_7_Team_B_Landslide_Extraction_20261015_113811_4',
+            pane: 'pane_Camp_7_Team_B_Landslide_Extraction_20261015_113811_4',
+            onEachFeature: pop_Camp_7_Team_B_Landslide_Extraction_20261015_113811_4,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Camp_7_Team_B_Landslide_Extraction_20261015_113811_4_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Camp_7_Team_B_Landslide_Extraction_20261015_113811_4);
+        map.addLayer(layer_Camp_7_Team_B_Landslide_Extraction_20261015_113811_4);
+        function pop_Camp_8W__Team_E_Landslide_Extraction_20261015_111127_5(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Landslide ID</th>\
+                        <td class="visible-with-data" id="Landslide ID">' + (feature.properties['Landslide ID'] !== null ? autolinker.link(String(feature.properties['Landslide ID']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date and Time</th>\
+                        <td class="visible-with-data" id="Date and Time">' + (feature.properties['Date and Time'] !== null ? autolinker.link(String(feature.properties['Date and Time']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Address or local name (hill/community/para)</th>\
+                        <td class="visible-with-data" id="Address or local name (hill/community/para)">' + (feature.properties['Address or local name (hill/community/para)'] !== null ? autolinker.link(String(feature.properties['Address or local name (hill/community/para)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Latitude</th>\
+                        <td class="visible-with-data" id="Latitude">' + (feature.properties['Latitude'] !== null ? autolinker.link(String(feature.properties['Latitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Longitude</th>\
+                        <td class="visible-with-data" id="Longitude">' + (feature.properties['Longitude'] !== null ? autolinker.link(String(feature.properties['Longitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Elevation (m)</th>\
+                        <td class="visible-with-data" id="Elevation (m)">' + (feature.properties['Elevation (m)'] !== null ? autolinker.link(String(feature.properties['Elevation (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Slope angle (°)</th>\
+                        <td class="visible-with-data" id="Slope angle (°)">' + (feature.properties['Slope angle (°)'] !== null ? autolinker.link(String(feature.properties['Slope angle (°)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date/year(s) of historical movement</th>\
+                        <td class="visible-with-data" id="Date/year(s) of historical movement">' + (feature.properties['Date/year(s) of historical movement'] !== null ? autolinker.link(String(feature.properties['Date/year(s) of historical movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Length of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Length of displaced mass (m)">' + (feature.properties['Length of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Length of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Depth of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Depth of displaced mass (m)">' + (feature.properties['Depth of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Depth of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Width of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Width of displaced mass (m)">' + (feature.properties['Width of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Width of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Materials</th>\
+                        <td class="visible-with-data" id="Materials">' + (feature.properties['Materials'] !== null ? autolinker.link(String(feature.properties['Materials']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Type of movement</th>\
+                        <td class="visible-with-data" id="Type of movement">' + (feature.properties['Type of movement'] !== null ? autolinker.link(String(feature.properties['Type of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Distribution</th>\
+                        <td class="visible-with-data" id="Distribution">' + (feature.properties['Distribution'] !== null ? autolinker.link(String(feature.properties['Distribution']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Status</th>\
+                        <td class="visible-with-data" id="Status">' + (feature.properties['Status'] !== null ? autolinker.link(String(feature.properties['Status']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Style</th>\
+                        <td class="visible-with-data" id="Style">' + (feature.properties['Style'] !== null ? autolinker.link(String(feature.properties['Style']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Land use type (Primary)</th>\
+                        <td class="visible-with-data" id="Land use type (Primary)">' + (feature.properties['Land use type (Primary)'] !== null ? autolinker.link(String(feature.properties['Land use type (Primary)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Cause of movement</th>\
+                        <td class="visible-with-data" id="Cause of movement">' + (feature.properties['Cause of movement'] !== null ? autolinker.link(String(feature.properties['Cause of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Overall risk intensity of the site</th>\
+                        <td class="visible-with-data" id="Overall risk intensity of the site">' + (feature.properties['Overall risk intensity of the site'] !== null ? autolinker.link(String(feature.properties['Overall risk intensity of the site']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Camp_8W__Team_E_Landslide_Extraction_20261015_111127_5_0() {
+            return {
+                pane: 'pane_Camp_8W__Team_E_Landslide_Extraction_20261015_111127_5',
+                radius: 4.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(114,155,111,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Camp_8W__Team_E_Landslide_Extraction_20261015_111127_5');
+        map.getPane('pane_Camp_8W__Team_E_Landslide_Extraction_20261015_111127_5').style.zIndex = 405;
+        map.getPane('pane_Camp_8W__Team_E_Landslide_Extraction_20261015_111127_5').style['mix-blend-mode'] = 'normal';
+        var layer_Camp_8W__Team_E_Landslide_Extraction_20261015_111127_5 = new L.geoJson(json_Camp_8W__Team_E_Landslide_Extraction_20261015_111127_5, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Camp_8W__Team_E_Landslide_Extraction_20261015_111127_5',
+            layerName: 'layer_Camp_8W__Team_E_Landslide_Extraction_20261015_111127_5',
+            pane: 'pane_Camp_8W__Team_E_Landslide_Extraction_20261015_111127_5',
+            onEachFeature: pop_Camp_8W__Team_E_Landslide_Extraction_20261015_111127_5,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Camp_8W__Team_E_Landslide_Extraction_20261015_111127_5_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Camp_8W__Team_E_Landslide_Extraction_20261015_111127_5);
+        map.addLayer(layer_Camp_8W__Team_E_Landslide_Extraction_20261015_111127_5);
+        function pop_Camp_9_Team_B_Landslide_Extraction_20261015_113229_6(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Landslide ID</th>\
+                        <td class="visible-with-data" id="Landslide ID">' + (feature.properties['Landslide ID'] !== null ? autolinker.link(String(feature.properties['Landslide ID']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date and Time</th>\
+                        <td class="visible-with-data" id="Date and Time">' + (feature.properties['Date and Time'] !== null ? autolinker.link(String(feature.properties['Date and Time']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Address or local name (hill/community/para)</th>\
+                        <td class="visible-with-data" id="Address or local name (hill/community/para)">' + (feature.properties['Address or local name (hill/community/para)'] !== null ? autolinker.link(String(feature.properties['Address or local name (hill/community/para)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Latitude</th>\
+                        <td class="visible-with-data" id="Latitude">' + (feature.properties['Latitude'] !== null ? autolinker.link(String(feature.properties['Latitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Longitude</th>\
+                        <td class="visible-with-data" id="Longitude">' + (feature.properties['Longitude'] !== null ? autolinker.link(String(feature.properties['Longitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Elevation (m)</th>\
+                        <td class="visible-with-data" id="Elevation (m)">' + (feature.properties['Elevation (m)'] !== null ? autolinker.link(String(feature.properties['Elevation (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Slope angle (°)</th>\
+                        <td class="visible-with-data" id="Slope angle (°)">' + (feature.properties['Slope angle (°)'] !== null ? autolinker.link(String(feature.properties['Slope angle (°)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date/year(s) of historical movement</th>\
+                        <td class="visible-with-data" id="Date/year(s) of historical movement">' + (feature.properties['Date/year(s) of historical movement'] !== null ? autolinker.link(String(feature.properties['Date/year(s) of historical movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Length of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Length of displaced mass (m)">' + (feature.properties['Length of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Length of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Depth of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Depth of displaced mass (m)">' + (feature.properties['Depth of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Depth of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Width of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Width of displaced mass (m)">' + (feature.properties['Width of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Width of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Materials</th>\
+                        <td class="visible-with-data" id="Materials">' + (feature.properties['Materials'] !== null ? autolinker.link(String(feature.properties['Materials']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Type of movement</th>\
+                        <td class="visible-with-data" id="Type of movement">' + (feature.properties['Type of movement'] !== null ? autolinker.link(String(feature.properties['Type of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Distribution</th>\
+                        <td class="visible-with-data" id="Distribution">' + (feature.properties['Distribution'] !== null ? autolinker.link(String(feature.properties['Distribution']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Status</th>\
+                        <td class="visible-with-data" id="Status">' + (feature.properties['Status'] !== null ? autolinker.link(String(feature.properties['Status']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Style</th>\
+                        <td class="visible-with-data" id="Style">' + (feature.properties['Style'] !== null ? autolinker.link(String(feature.properties['Style']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Land use type (Primary)</th>\
+                        <td class="visible-with-data" id="Land use type (Primary)">' + (feature.properties['Land use type (Primary)'] !== null ? autolinker.link(String(feature.properties['Land use type (Primary)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Cause of movement</th>\
+                        <td class="visible-with-data" id="Cause of movement">' + (feature.properties['Cause of movement'] !== null ? autolinker.link(String(feature.properties['Cause of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Overall risk intensity of the site</th>\
+                        <td class="visible-with-data" id="Overall risk intensity of the site">' + (feature.properties['Overall risk intensity of the site'] !== null ? autolinker.link(String(feature.properties['Overall risk intensity of the site']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Camp_9_Team_B_Landslide_Extraction_20261015_113229_6_0() {
+            return {
+                pane: 'pane_Camp_9_Team_B_Landslide_Extraction_20261015_113229_6',
+                radius: 4.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(164,113,88,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Camp_9_Team_B_Landslide_Extraction_20261015_113229_6');
+        map.getPane('pane_Camp_9_Team_B_Landslide_Extraction_20261015_113229_6').style.zIndex = 406;
+        map.getPane('pane_Camp_9_Team_B_Landslide_Extraction_20261015_113229_6').style['mix-blend-mode'] = 'normal';
+        var layer_Camp_9_Team_B_Landslide_Extraction_20261015_113229_6 = new L.geoJson(json_Camp_9_Team_B_Landslide_Extraction_20261015_113229_6, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Camp_9_Team_B_Landslide_Extraction_20261015_113229_6',
+            layerName: 'layer_Camp_9_Team_B_Landslide_Extraction_20261015_113229_6',
+            pane: 'pane_Camp_9_Team_B_Landslide_Extraction_20261015_113229_6',
+            onEachFeature: pop_Camp_9_Team_B_Landslide_Extraction_20261015_113229_6,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Camp_9_Team_B_Landslide_Extraction_20261015_113229_6_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Camp_9_Team_B_Landslide_Extraction_20261015_113229_6);
+        map.addLayer(layer_Camp_9_Team_B_Landslide_Extraction_20261015_113229_6);
+        function pop_Camp_10_Team_B_Landslide_Extraction_20261015_112357_7(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Landslide ID</th>\
+                        <td class="visible-with-data" id="Landslide ID">' + (feature.properties['Landslide ID'] !== null ? autolinker.link(String(feature.properties['Landslide ID']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date and Time</th>\
+                        <td class="visible-with-data" id="Date and Time">' + (feature.properties['Date and Time'] !== null ? autolinker.link(String(feature.properties['Date and Time']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Address or local name (hill/community/para)</th>\
+                        <td class="visible-with-data" id="Address or local name (hill/community/para)">' + (feature.properties['Address or local name (hill/community/para)'] !== null ? autolinker.link(String(feature.properties['Address or local name (hill/community/para)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Latitude</th>\
+                        <td class="visible-with-data" id="Latitude">' + (feature.properties['Latitude'] !== null ? autolinker.link(String(feature.properties['Latitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Longitude</th>\
+                        <td class="visible-with-data" id="Longitude">' + (feature.properties['Longitude'] !== null ? autolinker.link(String(feature.properties['Longitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Elevation (m)</th>\
+                        <td class="visible-with-data" id="Elevation (m)">' + (feature.properties['Elevation (m)'] !== null ? autolinker.link(String(feature.properties['Elevation (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Slope angle (°)</th>\
+                        <td class="visible-with-data" id="Slope angle (°)">' + (feature.properties['Slope angle (°)'] !== null ? autolinker.link(String(feature.properties['Slope angle (°)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date/year(s) of historical movement</th>\
+                        <td class="visible-with-data" id="Date/year(s) of historical movement">' + (feature.properties['Date/year(s) of historical movement'] !== null ? autolinker.link(String(feature.properties['Date/year(s) of historical movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Length of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Length of displaced mass (m)">' + (feature.properties['Length of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Length of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Depth of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Depth of displaced mass (m)">' + (feature.properties['Depth of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Depth of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Width of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Width of displaced mass (m)">' + (feature.properties['Width of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Width of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Materials</th>\
+                        <td class="visible-with-data" id="Materials">' + (feature.properties['Materials'] !== null ? autolinker.link(String(feature.properties['Materials']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Type of movement</th>\
+                        <td class="visible-with-data" id="Type of movement">' + (feature.properties['Type of movement'] !== null ? autolinker.link(String(feature.properties['Type of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Distribution</th>\
+                        <td class="visible-with-data" id="Distribution">' + (feature.properties['Distribution'] !== null ? autolinker.link(String(feature.properties['Distribution']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Status</th>\
+                        <td class="visible-with-data" id="Status">' + (feature.properties['Status'] !== null ? autolinker.link(String(feature.properties['Status']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Style</th>\
+                        <td class="visible-with-data" id="Style">' + (feature.properties['Style'] !== null ? autolinker.link(String(feature.properties['Style']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Land use type (Primary)</th>\
+                        <td class="visible-with-data" id="Land use type (Primary)">' + (feature.properties['Land use type (Primary)'] !== null ? autolinker.link(String(feature.properties['Land use type (Primary)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Cause of movement</th>\
+                        <td class="visible-with-data" id="Cause of movement">' + (feature.properties['Cause of movement'] !== null ? autolinker.link(String(feature.properties['Cause of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Overall risk intensity of the site</th>\
+                        <td class="visible-with-data" id="Overall risk intensity of the site">' + (feature.properties['Overall risk intensity of the site'] !== null ? autolinker.link(String(feature.properties['Overall risk intensity of the site']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Camp_10_Team_B_Landslide_Extraction_20261015_112357_7_0() {
+            return {
+                pane: 'pane_Camp_10_Team_B_Landslide_Extraction_20261015_112357_7',
+                radius: 4.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(125,139,143,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Camp_10_Team_B_Landslide_Extraction_20261015_112357_7');
+        map.getPane('pane_Camp_10_Team_B_Landslide_Extraction_20261015_112357_7').style.zIndex = 407;
+        map.getPane('pane_Camp_10_Team_B_Landslide_Extraction_20261015_112357_7').style['mix-blend-mode'] = 'normal';
+        var layer_Camp_10_Team_B_Landslide_Extraction_20261015_112357_7 = new L.geoJson(json_Camp_10_Team_B_Landslide_Extraction_20261015_112357_7, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Camp_10_Team_B_Landslide_Extraction_20261015_112357_7',
+            layerName: 'layer_Camp_10_Team_B_Landslide_Extraction_20261015_112357_7',
+            pane: 'pane_Camp_10_Team_B_Landslide_Extraction_20261015_112357_7',
+            onEachFeature: pop_Camp_10_Team_B_Landslide_Extraction_20261015_112357_7,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Camp_10_Team_B_Landslide_Extraction_20261015_112357_7_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Camp_10_Team_B_Landslide_Extraction_20261015_112357_7);
+        map.addLayer(layer_Camp_10_Team_B_Landslide_Extraction_20261015_112357_7);
+        function pop_Camp_14_Team_B_Landslide_Extraction_20261015_115810_8(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Landslide ID</th>\
+                        <td class="visible-with-data" id="Landslide ID">' + (feature.properties['Landslide ID'] !== null ? autolinker.link(String(feature.properties['Landslide ID']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date and Time</th>\
+                        <td class="visible-with-data" id="Date and Time">' + (feature.properties['Date and Time'] !== null ? autolinker.link(String(feature.properties['Date and Time']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Address or local name (hill/community/para)</th>\
+                        <td class="visible-with-data" id="Address or local name (hill/community/para)">' + (feature.properties['Address or local name (hill/community/para)'] !== null ? autolinker.link(String(feature.properties['Address or local name (hill/community/para)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Latitude</th>\
+                        <td class="visible-with-data" id="Latitude">' + (feature.properties['Latitude'] !== null ? autolinker.link(String(feature.properties['Latitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Longitude</th>\
+                        <td class="visible-with-data" id="Longitude">' + (feature.properties['Longitude'] !== null ? autolinker.link(String(feature.properties['Longitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Elevation (m)</th>\
+                        <td class="visible-with-data" id="Elevation (m)">' + (feature.properties['Elevation (m)'] !== null ? autolinker.link(String(feature.properties['Elevation (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Slope angle (°)</th>\
+                        <td class="visible-with-data" id="Slope angle (°)">' + (feature.properties['Slope angle (°)'] !== null ? autolinker.link(String(feature.properties['Slope angle (°)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date/year(s) of historical movement</th>\
+                        <td class="visible-with-data" id="Date/year(s) of historical movement">' + (feature.properties['Date/year(s) of historical movement'] !== null ? autolinker.link(String(feature.properties['Date/year(s) of historical movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Length of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Length of displaced mass (m)">' + (feature.properties['Length of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Length of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Depth of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Depth of displaced mass (m)">' + (feature.properties['Depth of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Depth of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Width of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Width of displaced mass (m)">' + (feature.properties['Width of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Width of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Materials</th>\
+                        <td class="visible-with-data" id="Materials">' + (feature.properties['Materials'] !== null ? autolinker.link(String(feature.properties['Materials']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Type of movement</th>\
+                        <td class="visible-with-data" id="Type of movement">' + (feature.properties['Type of movement'] !== null ? autolinker.link(String(feature.properties['Type of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Distribution</th>\
+                        <td class="visible-with-data" id="Distribution">' + (feature.properties['Distribution'] !== null ? autolinker.link(String(feature.properties['Distribution']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Status</th>\
+                        <td class="visible-with-data" id="Status">' + (feature.properties['Status'] !== null ? autolinker.link(String(feature.properties['Status']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Style</th>\
+                        <td class="visible-with-data" id="Style">' + (feature.properties['Style'] !== null ? autolinker.link(String(feature.properties['Style']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Land use type (Primary)</th>\
+                        <td class="visible-with-data" id="Land use type (Primary)">' + (feature.properties['Land use type (Primary)'] !== null ? autolinker.link(String(feature.properties['Land use type (Primary)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Cause of movement</th>\
+                        <td class="visible-with-data" id="Cause of movement">' + (feature.properties['Cause of movement'] !== null ? autolinker.link(String(feature.properties['Cause of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Overall risk intensity of the site</th>\
+                        <td class="visible-with-data" id="Overall risk intensity of the site">' + (feature.properties['Overall risk intensity of the site'] !== null ? autolinker.link(String(feature.properties['Overall risk intensity of the site']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Camp_14_Team_B_Landslide_Extraction_20261015_115810_8_0() {
+            return {
+                pane: 'pane_Camp_14_Team_B_Landslide_Extraction_20261015_115810_8',
+                radius: 4.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(190,178,151,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Camp_14_Team_B_Landslide_Extraction_20261015_115810_8');
+        map.getPane('pane_Camp_14_Team_B_Landslide_Extraction_20261015_115810_8').style.zIndex = 408;
+        map.getPane('pane_Camp_14_Team_B_Landslide_Extraction_20261015_115810_8').style['mix-blend-mode'] = 'normal';
+        var layer_Camp_14_Team_B_Landslide_Extraction_20261015_115810_8 = new L.geoJson(json_Camp_14_Team_B_Landslide_Extraction_20261015_115810_8, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Camp_14_Team_B_Landslide_Extraction_20261015_115810_8',
+            layerName: 'layer_Camp_14_Team_B_Landslide_Extraction_20261015_115810_8',
+            pane: 'pane_Camp_14_Team_B_Landslide_Extraction_20261015_115810_8',
+            onEachFeature: pop_Camp_14_Team_B_Landslide_Extraction_20261015_115810_8,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Camp_14_Team_B_Landslide_Extraction_20261015_115810_8_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Camp_14_Team_B_Landslide_Extraction_20261015_115810_8);
+        map.addLayer(layer_Camp_14_Team_B_Landslide_Extraction_20261015_115810_8);
+        function pop_Camp14_Team_B_Landslide_Extraction_20261015_115632_9(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Landslide ID</th>\
+                        <td class="visible-with-data" id="Landslide ID">' + (feature.properties['Landslide ID'] !== null ? autolinker.link(String(feature.properties['Landslide ID']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date and Time</th>\
+                        <td class="visible-with-data" id="Date and Time">' + (feature.properties['Date and Time'] !== null ? autolinker.link(String(feature.properties['Date and Time']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Address or local name (hill/community/para)</th>\
+                        <td class="visible-with-data" id="Address or local name (hill/community/para)">' + (feature.properties['Address or local name (hill/community/para)'] !== null ? autolinker.link(String(feature.properties['Address or local name (hill/community/para)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Latitude</th>\
+                        <td class="visible-with-data" id="Latitude">' + (feature.properties['Latitude'] !== null ? autolinker.link(String(feature.properties['Latitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Longitude</th>\
+                        <td class="visible-with-data" id="Longitude">' + (feature.properties['Longitude'] !== null ? autolinker.link(String(feature.properties['Longitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Elevation (m)</th>\
+                        <td class="visible-with-data" id="Elevation (m)">' + (feature.properties['Elevation (m)'] !== null ? autolinker.link(String(feature.properties['Elevation (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Slope angle (°)</th>\
+                        <td class="visible-with-data" id="Slope angle (°)">' + (feature.properties['Slope angle (°)'] !== null ? autolinker.link(String(feature.properties['Slope angle (°)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date/year(s) of historical movement</th>\
+                        <td class="visible-with-data" id="Date/year(s) of historical movement">' + (feature.properties['Date/year(s) of historical movement'] !== null ? autolinker.link(String(feature.properties['Date/year(s) of historical movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Length of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Length of displaced mass (m)">' + (feature.properties['Length of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Length of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Depth of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Depth of displaced mass (m)">' + (feature.properties['Depth of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Depth of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Width of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Width of displaced mass (m)">' + (feature.properties['Width of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Width of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Materials</th>\
+                        <td class="visible-with-data" id="Materials">' + (feature.properties['Materials'] !== null ? autolinker.link(String(feature.properties['Materials']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Type of movement</th>\
+                        <td class="visible-with-data" id="Type of movement">' + (feature.properties['Type of movement'] !== null ? autolinker.link(String(feature.properties['Type of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Distribution</th>\
+                        <td class="visible-with-data" id="Distribution">' + (feature.properties['Distribution'] !== null ? autolinker.link(String(feature.properties['Distribution']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Status</th>\
+                        <td class="visible-with-data" id="Status">' + (feature.properties['Status'] !== null ? autolinker.link(String(feature.properties['Status']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Style</th>\
+                        <td class="visible-with-data" id="Style">' + (feature.properties['Style'] !== null ? autolinker.link(String(feature.properties['Style']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Land use type (Primary)</th>\
+                        <td class="visible-with-data" id="Land use type (Primary)">' + (feature.properties['Land use type (Primary)'] !== null ? autolinker.link(String(feature.properties['Land use type (Primary)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Cause of movement</th>\
+                        <td class="visible-with-data" id="Cause of movement">' + (feature.properties['Cause of movement'] !== null ? autolinker.link(String(feature.properties['Cause of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Overall risk intensity of the site</th>\
+                        <td class="visible-with-data" id="Overall risk intensity of the site">' + (feature.properties['Overall risk intensity of the site'] !== null ? autolinker.link(String(feature.properties['Overall risk intensity of the site']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Camp14_Team_B_Landslide_Extraction_20261015_115632_9_0() {
+            return {
+                pane: 'pane_Camp14_Team_B_Landslide_Extraction_20261015_115632_9',
+                radius: 4.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(229,182,54,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Camp14_Team_B_Landslide_Extraction_20261015_115632_9');
+        map.getPane('pane_Camp14_Team_B_Landslide_Extraction_20261015_115632_9').style.zIndex = 409;
+        map.getPane('pane_Camp14_Team_B_Landslide_Extraction_20261015_115632_9').style['mix-blend-mode'] = 'normal';
+        var layer_Camp14_Team_B_Landslide_Extraction_20261015_115632_9 = new L.geoJson(json_Camp14_Team_B_Landslide_Extraction_20261015_115632_9, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Camp14_Team_B_Landslide_Extraction_20261015_115632_9',
+            layerName: 'layer_Camp14_Team_B_Landslide_Extraction_20261015_115632_9',
+            pane: 'pane_Camp14_Team_B_Landslide_Extraction_20261015_115632_9',
+            onEachFeature: pop_Camp14_Team_B_Landslide_Extraction_20261015_115632_9,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Camp14_Team_B_Landslide_Extraction_20261015_115632_9_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Camp14_Team_B_Landslide_Extraction_20261015_115632_9);
+        map.addLayer(layer_Camp14_Team_B_Landslide_Extraction_20261015_115632_9);
+        function pop_Camp_19_TeamC_Landslide_Extraction_20261015_125513_10(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Landslide ID</th>\
+                        <td class="visible-with-data" id="Landslide ID">' + (feature.properties['Landslide ID'] !== null ? autolinker.link(String(feature.properties['Landslide ID']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date and Time</th>\
+                        <td class="visible-with-data" id="Date and Time">' + (feature.properties['Date and Time'] !== null ? autolinker.link(String(feature.properties['Date and Time']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Address or local name (hill/community/para)</th>\
+                        <td class="visible-with-data" id="Address or local name (hill/community/para)">' + (feature.properties['Address or local name (hill/community/para)'] !== null ? autolinker.link(String(feature.properties['Address or local name (hill/community/para)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Latitude</th>\
+                        <td class="visible-with-data" id="Latitude">' + (feature.properties['Latitude'] !== null ? autolinker.link(String(feature.properties['Latitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Longitude</th>\
+                        <td class="visible-with-data" id="Longitude">' + (feature.properties['Longitude'] !== null ? autolinker.link(String(feature.properties['Longitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Elevation (m)</th>\
+                        <td class="visible-with-data" id="Elevation (m)">' + (feature.properties['Elevation (m)'] !== null ? autolinker.link(String(feature.properties['Elevation (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Slope angle (°)</th>\
+                        <td class="visible-with-data" id="Slope angle (°)">' + (feature.properties['Slope angle (°)'] !== null ? autolinker.link(String(feature.properties['Slope angle (°)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date/year(s) of historical movement</th>\
+                        <td class="visible-with-data" id="Date/year(s) of historical movement">' + (feature.properties['Date/year(s) of historical movement'] !== null ? autolinker.link(String(feature.properties['Date/year(s) of historical movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Length of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Length of displaced mass (m)">' + (feature.properties['Length of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Length of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Depth of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Depth of displaced mass (m)">' + (feature.properties['Depth of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Depth of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Width of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Width of displaced mass (m)">' + (feature.properties['Width of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Width of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Materials</th>\
+                        <td class="visible-with-data" id="Materials">' + (feature.properties['Materials'] !== null ? autolinker.link(String(feature.properties['Materials']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Type of movement</th>\
+                        <td class="visible-with-data" id="Type of movement">' + (feature.properties['Type of movement'] !== null ? autolinker.link(String(feature.properties['Type of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Distribution</th>\
+                        <td class="visible-with-data" id="Distribution">' + (feature.properties['Distribution'] !== null ? autolinker.link(String(feature.properties['Distribution']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Status</th>\
+                        <td class="visible-with-data" id="Status">' + (feature.properties['Status'] !== null ? autolinker.link(String(feature.properties['Status']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Style</th>\
+                        <td class="visible-with-data" id="Style">' + (feature.properties['Style'] !== null ? autolinker.link(String(feature.properties['Style']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Land use type (Primary)</th>\
+                        <td class="visible-with-data" id="Land use type (Primary)">' + (feature.properties['Land use type (Primary)'] !== null ? autolinker.link(String(feature.properties['Land use type (Primary)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Cause of movement</th>\
+                        <td class="visible-with-data" id="Cause of movement">' + (feature.properties['Cause of movement'] !== null ? autolinker.link(String(feature.properties['Cause of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Overall risk intensity of the site</th>\
+                        <td class="visible-with-data" id="Overall risk intensity of the site">' + (feature.properties['Overall risk intensity of the site'] !== null ? autolinker.link(String(feature.properties['Overall risk intensity of the site']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Camp_19_TeamC_Landslide_Extraction_20261015_125513_10_0() {
+            return {
+                pane: 'pane_Camp_19_TeamC_Landslide_Extraction_20261015_125513_10',
+                radius: 4.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(190,207,80,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Camp_19_TeamC_Landslide_Extraction_20261015_125513_10');
+        map.getPane('pane_Camp_19_TeamC_Landslide_Extraction_20261015_125513_10').style.zIndex = 410;
+        map.getPane('pane_Camp_19_TeamC_Landslide_Extraction_20261015_125513_10').style['mix-blend-mode'] = 'normal';
+        var layer_Camp_19_TeamC_Landslide_Extraction_20261015_125513_10 = new L.geoJson(json_Camp_19_TeamC_Landslide_Extraction_20261015_125513_10, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Camp_19_TeamC_Landslide_Extraction_20261015_125513_10',
+            layerName: 'layer_Camp_19_TeamC_Landslide_Extraction_20261015_125513_10',
+            pane: 'pane_Camp_19_TeamC_Landslide_Extraction_20261015_125513_10',
+            onEachFeature: pop_Camp_19_TeamC_Landslide_Extraction_20261015_125513_10,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Camp_19_TeamC_Landslide_Extraction_20261015_125513_10_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Camp_19_TeamC_Landslide_Extraction_20261015_125513_10);
+        map.addLayer(layer_Camp_19_TeamC_Landslide_Extraction_20261015_125513_10);
+        function pop_Camp_20Ext_Team_B_Landslide_Extraction_20261015_112826_11(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Landslide ID</th>\
+                        <td class="visible-with-data" id="Landslide ID">' + (feature.properties['Landslide ID'] !== null ? autolinker.link(String(feature.properties['Landslide ID']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date and Time</th>\
+                        <td class="visible-with-data" id="Date and Time">' + (feature.properties['Date and Time'] !== null ? autolinker.link(String(feature.properties['Date and Time']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Address or local name (hill/community/para)</th>\
+                        <td class="visible-with-data" id="Address or local name (hill/community/para)">' + (feature.properties['Address or local name (hill/community/para)'] !== null ? autolinker.link(String(feature.properties['Address or local name (hill/community/para)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Latitude</th>\
+                        <td class="visible-with-data" id="Latitude">' + (feature.properties['Latitude'] !== null ? autolinker.link(String(feature.properties['Latitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Longitude</th>\
+                        <td class="visible-with-data" id="Longitude">' + (feature.properties['Longitude'] !== null ? autolinker.link(String(feature.properties['Longitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Elevation (m)</th>\
+                        <td class="visible-with-data" id="Elevation (m)">' + (feature.properties['Elevation (m)'] !== null ? autolinker.link(String(feature.properties['Elevation (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Slope angle (°)</th>\
+                        <td class="visible-with-data" id="Slope angle (°)">' + (feature.properties['Slope angle (°)'] !== null ? autolinker.link(String(feature.properties['Slope angle (°)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date/year(s) of historical movement</th>\
+                        <td class="visible-with-data" id="Date/year(s) of historical movement">' + (feature.properties['Date/year(s) of historical movement'] !== null ? autolinker.link(String(feature.properties['Date/year(s) of historical movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Length of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Length of displaced mass (m)">' + (feature.properties['Length of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Length of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Depth of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Depth of displaced mass (m)">' + (feature.properties['Depth of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Depth of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Width of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Width of displaced mass (m)">' + (feature.properties['Width of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Width of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Materials</th>\
+                        <td class="visible-with-data" id="Materials">' + (feature.properties['Materials'] !== null ? autolinker.link(String(feature.properties['Materials']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Type of movement</th>\
+                        <td class="visible-with-data" id="Type of movement">' + (feature.properties['Type of movement'] !== null ? autolinker.link(String(feature.properties['Type of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Distribution</th>\
+                        <td class="visible-with-data" id="Distribution">' + (feature.properties['Distribution'] !== null ? autolinker.link(String(feature.properties['Distribution']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Status</th>\
+                        <td class="visible-with-data" id="Status">' + (feature.properties['Status'] !== null ? autolinker.link(String(feature.properties['Status']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Style</th>\
+                        <td class="visible-with-data" id="Style">' + (feature.properties['Style'] !== null ? autolinker.link(String(feature.properties['Style']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Land use type (Primary)</th>\
+                        <td class="visible-with-data" id="Land use type (Primary)">' + (feature.properties['Land use type (Primary)'] !== null ? autolinker.link(String(feature.properties['Land use type (Primary)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Cause of movement</th>\
+                        <td class="visible-with-data" id="Cause of movement">' + (feature.properties['Cause of movement'] !== null ? autolinker.link(String(feature.properties['Cause of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Overall risk intensity of the site</th>\
+                        <td class="visible-with-data" id="Overall risk intensity of the site">' + (feature.properties['Overall risk intensity of the site'] !== null ? autolinker.link(String(feature.properties['Overall risk intensity of the site']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Camp_20Ext_Team_B_Landslide_Extraction_20261015_112826_11_0() {
+            return {
+                pane: 'pane_Camp_20Ext_Team_B_Landslide_Extraction_20261015_112826_11',
+                radius: 4.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(231,113,72,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Camp_20Ext_Team_B_Landslide_Extraction_20261015_112826_11');
+        map.getPane('pane_Camp_20Ext_Team_B_Landslide_Extraction_20261015_112826_11').style.zIndex = 411;
+        map.getPane('pane_Camp_20Ext_Team_B_Landslide_Extraction_20261015_112826_11').style['mix-blend-mode'] = 'normal';
+        var layer_Camp_20Ext_Team_B_Landslide_Extraction_20261015_112826_11 = new L.geoJson(json_Camp_20Ext_Team_B_Landslide_Extraction_20261015_112826_11, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Camp_20Ext_Team_B_Landslide_Extraction_20261015_112826_11',
+            layerName: 'layer_Camp_20Ext_Team_B_Landslide_Extraction_20261015_112826_11',
+            pane: 'pane_Camp_20Ext_Team_B_Landslide_Extraction_20261015_112826_11',
+            onEachFeature: pop_Camp_20Ext_Team_B_Landslide_Extraction_20261015_112826_11,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Camp_20Ext_Team_B_Landslide_Extraction_20261015_112826_11_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Camp_20Ext_Team_B_Landslide_Extraction_20261015_112826_11);
+        map.addLayer(layer_Camp_20Ext_Team_B_Landslide_Extraction_20261015_112826_11);
+        function pop_Camp17_TeamA_Landslide_Extraction_20261015_131922_12(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Landslide ID</th>\
+                        <td class="visible-with-data" id="Landslide ID">' + (feature.properties['Landslide ID'] !== null ? autolinker.link(String(feature.properties['Landslide ID']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date and Time</th>\
+                        <td class="visible-with-data" id="Date and Time">' + (feature.properties['Date and Time'] !== null ? autolinker.link(String(feature.properties['Date and Time']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Address or local name (hill/community/para)</th>\
+                        <td class="visible-with-data" id="Address or local name (hill/community/para)">' + (feature.properties['Address or local name (hill/community/para)'] !== null ? autolinker.link(String(feature.properties['Address or local name (hill/community/para)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Latitude</th>\
+                        <td class="visible-with-data" id="Latitude">' + (feature.properties['Latitude'] !== null ? autolinker.link(String(feature.properties['Latitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Longitude</th>\
+                        <td class="visible-with-data" id="Longitude">' + (feature.properties['Longitude'] !== null ? autolinker.link(String(feature.properties['Longitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Elevation (m)</th>\
+                        <td class="visible-with-data" id="Elevation (m)">' + (feature.properties['Elevation (m)'] !== null ? autolinker.link(String(feature.properties['Elevation (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Slope angle (°)</th>\
+                        <td class="visible-with-data" id="Slope angle (°)">' + (feature.properties['Slope angle (°)'] !== null ? autolinker.link(String(feature.properties['Slope angle (°)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date/year(s) of historical movement</th>\
+                        <td class="visible-with-data" id="Date/year(s) of historical movement">' + (feature.properties['Date/year(s) of historical movement'] !== null ? autolinker.link(String(feature.properties['Date/year(s) of historical movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Length of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Length of displaced mass (m)">' + (feature.properties['Length of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Length of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Depth of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Depth of displaced mass (m)">' + (feature.properties['Depth of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Depth of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Width of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Width of displaced mass (m)">' + (feature.properties['Width of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Width of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Materials</th>\
+                        <td class="visible-with-data" id="Materials">' + (feature.properties['Materials'] !== null ? autolinker.link(String(feature.properties['Materials']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Type of movement</th>\
+                        <td class="visible-with-data" id="Type of movement">' + (feature.properties['Type of movement'] !== null ? autolinker.link(String(feature.properties['Type of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Distribution</th>\
+                        <td class="visible-with-data" id="Distribution">' + (feature.properties['Distribution'] !== null ? autolinker.link(String(feature.properties['Distribution']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Status</th>\
+                        <td class="visible-with-data" id="Status">' + (feature.properties['Status'] !== null ? autolinker.link(String(feature.properties['Status']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Style</th>\
+                        <td class="visible-with-data" id="Style">' + (feature.properties['Style'] !== null ? autolinker.link(String(feature.properties['Style']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Land use type (Primary)</th>\
+                        <td class="visible-with-data" id="Land use type (Primary)">' + (feature.properties['Land use type (Primary)'] !== null ? autolinker.link(String(feature.properties['Land use type (Primary)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Cause of movement</th>\
+                        <td class="visible-with-data" id="Cause of movement">' + (feature.properties['Cause of movement'] !== null ? autolinker.link(String(feature.properties['Cause of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Overall risk intensity of the site</th>\
+                        <td class="visible-with-data" id="Overall risk intensity of the site">' + (feature.properties['Overall risk intensity of the site'] !== null ? autolinker.link(String(feature.properties['Overall risk intensity of the site']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Camp17_TeamA_Landslide_Extraction_20261015_131922_12_0() {
+            return {
+                pane: 'pane_Camp17_TeamA_Landslide_Extraction_20261015_131922_12',
+                radius: 4.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(255,158,23,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Camp17_TeamA_Landslide_Extraction_20261015_131922_12');
+        map.getPane('pane_Camp17_TeamA_Landslide_Extraction_20261015_131922_12').style.zIndex = 412;
+        map.getPane('pane_Camp17_TeamA_Landslide_Extraction_20261015_131922_12').style['mix-blend-mode'] = 'normal';
+        var layer_Camp17_TeamA_Landslide_Extraction_20261015_131922_12 = new L.geoJson(json_Camp17_TeamA_Landslide_Extraction_20261015_131922_12, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Camp17_TeamA_Landslide_Extraction_20261015_131922_12',
+            layerName: 'layer_Camp17_TeamA_Landslide_Extraction_20261015_131922_12',
+            pane: 'pane_Camp17_TeamA_Landslide_Extraction_20261015_131922_12',
+            onEachFeature: pop_Camp17_TeamA_Landslide_Extraction_20261015_131922_12,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Camp17_TeamA_Landslide_Extraction_20261015_131922_12_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Camp17_TeamA_Landslide_Extraction_20261015_131922_12);
+        map.addLayer(layer_Camp17_TeamA_Landslide_Extraction_20261015_131922_12);
+        function pop_Camp18_Team_E_Landslide_Extraction_20261015_121454_13(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Landslide ID</th>\
+                        <td class="visible-with-data" id="Landslide ID">' + (feature.properties['Landslide ID'] !== null ? autolinker.link(String(feature.properties['Landslide ID']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date and Time</th>\
+                        <td class="visible-with-data" id="Date and Time">' + (feature.properties['Date and Time'] !== null ? autolinker.link(String(feature.properties['Date and Time']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Address or local name (hill/community/para)</th>\
+                        <td class="visible-with-data" id="Address or local name (hill/community/para)">' + (feature.properties['Address or local name (hill/community/para)'] !== null ? autolinker.link(String(feature.properties['Address or local name (hill/community/para)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Latitude</th>\
+                        <td class="visible-with-data" id="Latitude">' + (feature.properties['Latitude'] !== null ? autolinker.link(String(feature.properties['Latitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Longitude</th>\
+                        <td class="visible-with-data" id="Longitude">' + (feature.properties['Longitude'] !== null ? autolinker.link(String(feature.properties['Longitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Elevation (m)</th>\
+                        <td class="visible-with-data" id="Elevation (m)">' + (feature.properties['Elevation (m)'] !== null ? autolinker.link(String(feature.properties['Elevation (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Slope angle (°)</th>\
+                        <td class="visible-with-data" id="Slope angle (°)">' + (feature.properties['Slope angle (°)'] !== null ? autolinker.link(String(feature.properties['Slope angle (°)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date/year(s) of historical movement</th>\
+                        <td class="visible-with-data" id="Date/year(s) of historical movement">' + (feature.properties['Date/year(s) of historical movement'] !== null ? autolinker.link(String(feature.properties['Date/year(s) of historical movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Length of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Length of displaced mass (m)">' + (feature.properties['Length of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Length of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Depth of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Depth of displaced mass (m)">' + (feature.properties['Depth of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Depth of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Width of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Width of displaced mass (m)">' + (feature.properties['Width of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Width of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Materials</th>\
+                        <td class="visible-with-data" id="Materials">' + (feature.properties['Materials'] !== null ? autolinker.link(String(feature.properties['Materials']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Type of movement</th>\
+                        <td class="visible-with-data" id="Type of movement">' + (feature.properties['Type of movement'] !== null ? autolinker.link(String(feature.properties['Type of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Distribution</th>\
+                        <td class="visible-with-data" id="Distribution">' + (feature.properties['Distribution'] !== null ? autolinker.link(String(feature.properties['Distribution']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Status</th>\
+                        <td class="visible-with-data" id="Status">' + (feature.properties['Status'] !== null ? autolinker.link(String(feature.properties['Status']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Style</th>\
+                        <td class="visible-with-data" id="Style">' + (feature.properties['Style'] !== null ? autolinker.link(String(feature.properties['Style']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Land use type (Primary)</th>\
+                        <td class="visible-with-data" id="Land use type (Primary)">' + (feature.properties['Land use type (Primary)'] !== null ? autolinker.link(String(feature.properties['Land use type (Primary)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Cause of movement</th>\
+                        <td class="visible-with-data" id="Cause of movement">' + (feature.properties['Cause of movement'] !== null ? autolinker.link(String(feature.properties['Cause of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Overall risk intensity of the site</th>\
+                        <td class="visible-with-data" id="Overall risk intensity of the site">' + (feature.properties['Overall risk intensity of the site'] !== null ? autolinker.link(String(feature.properties['Overall risk intensity of the site']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Camp18_Team_E_Landslide_Extraction_20261015_121454_13_0() {
+            return {
+                pane: 'pane_Camp18_Team_E_Landslide_Extraction_20261015_121454_13',
+                radius: 4.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(141,90,153,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Camp18_Team_E_Landslide_Extraction_20261015_121454_13');
+        map.getPane('pane_Camp18_Team_E_Landslide_Extraction_20261015_121454_13').style.zIndex = 413;
+        map.getPane('pane_Camp18_Team_E_Landslide_Extraction_20261015_121454_13').style['mix-blend-mode'] = 'normal';
+        var layer_Camp18_Team_E_Landslide_Extraction_20261015_121454_13 = new L.geoJson(json_Camp18_Team_E_Landslide_Extraction_20261015_121454_13, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Camp18_Team_E_Landslide_Extraction_20261015_121454_13',
+            layerName: 'layer_Camp18_Team_E_Landslide_Extraction_20261015_121454_13',
+            pane: 'pane_Camp18_Team_E_Landslide_Extraction_20261015_121454_13',
+            onEachFeature: pop_Camp18_Team_E_Landslide_Extraction_20261015_121454_13,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Camp18_Team_E_Landslide_Extraction_20261015_121454_13_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Camp18_Team_E_Landslide_Extraction_20261015_121454_13);
+        map.addLayer(layer_Camp18_Team_E_Landslide_Extraction_20261015_121454_13);
+        function pop_Camp20_TeamA_Landslide_Extraction_20261015_130315_14(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Landslide ID</th>\
+                        <td class="visible-with-data" id="Landslide ID">' + (feature.properties['Landslide ID'] !== null ? autolinker.link(String(feature.properties['Landslide ID']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date and Time</th>\
+                        <td class="visible-with-data" id="Date and Time">' + (feature.properties['Date and Time'] !== null ? autolinker.link(String(feature.properties['Date and Time']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Address or local name (hill/community/para)</th>\
+                        <td class="visible-with-data" id="Address or local name (hill/community/para)">' + (feature.properties['Address or local name (hill/community/para)'] !== null ? autolinker.link(String(feature.properties['Address or local name (hill/community/para)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Latitude</th>\
+                        <td class="visible-with-data" id="Latitude">' + (feature.properties['Latitude'] !== null ? autolinker.link(String(feature.properties['Latitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Longitude</th>\
+                        <td class="visible-with-data" id="Longitude">' + (feature.properties['Longitude'] !== null ? autolinker.link(String(feature.properties['Longitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Elevation (m)</th>\
+                        <td class="visible-with-data" id="Elevation (m)">' + (feature.properties['Elevation (m)'] !== null ? autolinker.link(String(feature.properties['Elevation (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Slope angle (°)</th>\
+                        <td class="visible-with-data" id="Slope angle (°)">' + (feature.properties['Slope angle (°)'] !== null ? autolinker.link(String(feature.properties['Slope angle (°)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date/year(s) of historical movement</th>\
+                        <td class="visible-with-data" id="Date/year(s) of historical movement">' + (feature.properties['Date/year(s) of historical movement'] !== null ? autolinker.link(String(feature.properties['Date/year(s) of historical movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Length of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Length of displaced mass (m)">' + (feature.properties['Length of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Length of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Depth of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Depth of displaced mass (m)">' + (feature.properties['Depth of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Depth of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Width of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Width of displaced mass (m)">' + (feature.properties['Width of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Width of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Materials</th>\
+                        <td class="visible-with-data" id="Materials">' + (feature.properties['Materials'] !== null ? autolinker.link(String(feature.properties['Materials']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Type of movement</th>\
+                        <td class="visible-with-data" id="Type of movement">' + (feature.properties['Type of movement'] !== null ? autolinker.link(String(feature.properties['Type of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Distribution</th>\
+                        <td class="visible-with-data" id="Distribution">' + (feature.properties['Distribution'] !== null ? autolinker.link(String(feature.properties['Distribution']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Status</th>\
+                        <td class="visible-with-data" id="Status">' + (feature.properties['Status'] !== null ? autolinker.link(String(feature.properties['Status']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Style</th>\
+                        <td class="visible-with-data" id="Style">' + (feature.properties['Style'] !== null ? autolinker.link(String(feature.properties['Style']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Land use type (Primary)</th>\
+                        <td class="visible-with-data" id="Land use type (Primary)">' + (feature.properties['Land use type (Primary)'] !== null ? autolinker.link(String(feature.properties['Land use type (Primary)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Cause of movement</th>\
+                        <td class="visible-with-data" id="Cause of movement">' + (feature.properties['Cause of movement'] !== null ? autolinker.link(String(feature.properties['Cause of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Overall risk intensity of the site</th>\
+                        <td class="visible-with-data" id="Overall risk intensity of the site">' + (feature.properties['Overall risk intensity of the site'] !== null ? autolinker.link(String(feature.properties['Overall risk intensity of the site']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Camp20_TeamA_Landslide_Extraction_20261015_130315_14_0() {
+            return {
+                pane: 'pane_Camp20_TeamA_Landslide_Extraction_20261015_130315_14',
+                radius: 4.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(114,155,111,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Camp20_TeamA_Landslide_Extraction_20261015_130315_14');
+        map.getPane('pane_Camp20_TeamA_Landslide_Extraction_20261015_130315_14').style.zIndex = 414;
+        map.getPane('pane_Camp20_TeamA_Landslide_Extraction_20261015_130315_14').style['mix-blend-mode'] = 'normal';
+        var layer_Camp20_TeamA_Landslide_Extraction_20261015_130315_14 = new L.geoJson(json_Camp20_TeamA_Landslide_Extraction_20261015_130315_14, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Camp20_TeamA_Landslide_Extraction_20261015_130315_14',
+            layerName: 'layer_Camp20_TeamA_Landslide_Extraction_20261015_130315_14',
+            pane: 'pane_Camp20_TeamA_Landslide_Extraction_20261015_130315_14',
+            onEachFeature: pop_Camp20_TeamA_Landslide_Extraction_20261015_130315_14,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Camp20_TeamA_Landslide_Extraction_20261015_130315_14_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Camp20_TeamA_Landslide_Extraction_20261015_130315_14);
+        map.addLayer(layer_Camp20_TeamA_Landslide_Extraction_20261015_130315_14);
+        function pop_Camp11_TeamC_Landslide_Extraction_20261017_061619_15(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Landslide ID</th>\
+                        <td class="visible-with-data" id="Landslide ID">' + (feature.properties['Landslide ID'] !== null ? autolinker.link(String(feature.properties['Landslide ID']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td class="visible-with-data" id="Date and Time" colspan="2"><strong>Date and Time</strong><br />' + (feature.properties['Date and Time'] !== null ? autolinker.link(String(feature.properties['Date and Time']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Address or local name (hill/community/para)</th>\
+                        <td class="visible-with-data" id="Address or local name (hill/community/para)">' + (feature.properties['Address or local name (hill/community/para)'] !== null ? autolinker.link(String(feature.properties['Address or local name (hill/community/para)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Latitude</th>\
+                        <td class="visible-with-data" id="Latitude">' + (feature.properties['Latitude'] !== null ? autolinker.link(String(feature.properties['Latitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Longitude</th>\
+                        <td class="visible-with-data" id="Longitude">' + (feature.properties['Longitude'] !== null ? autolinker.link(String(feature.properties['Longitude']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Elevation (m)</th>\
+                        <td class="visible-with-data" id="Elevation (m)">' + (feature.properties['Elevation (m)'] !== null ? autolinker.link(String(feature.properties['Elevation (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Slope angle ( )</th>\
+                        <td class="visible-with-data" id="Slope angle ( )">' + (feature.properties['Slope angle ( )'] !== null ? autolinker.link(String(feature.properties['Slope angle ( )']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Date/year(s) of historical movement</th>\
+                        <td class="visible-with-data" id="Date/year(s) of historical movement">' + (feature.properties['Date/year(s) of historical movement'] !== null ? autolinker.link(String(feature.properties['Date/year(s) of historical movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Length of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Length of displaced mass (m)">' + (feature.properties['Length of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Length of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Depth of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Depth of displaced mass (m)">' + (feature.properties['Depth of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Depth of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Width of displaced mass (m)</th>\
+                        <td class="visible-with-data" id="Width of displaced mass (m)">' + (feature.properties['Width of displaced mass (m)'] !== null ? autolinker.link(String(feature.properties['Width of displaced mass (m)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Materials</th>\
+                        <td class="visible-with-data" id="Materials">' + (feature.properties['Materials'] !== null ? autolinker.link(String(feature.properties['Materials']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Type of movement</th>\
+                        <td class="visible-with-data" id="Type of movement">' + (feature.properties['Type of movement'] !== null ? autolinker.link(String(feature.properties['Type of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Distribution</th>\
+                        <td class="visible-with-data" id="Distribution">' + (feature.properties['Distribution'] !== null ? autolinker.link(String(feature.properties['Distribution']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Status</th>\
+                        <td class="visible-with-data" id="Status">' + (feature.properties['Status'] !== null ? autolinker.link(String(feature.properties['Status']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Style</th>\
+                        <td class="visible-with-data" id="Style">' + (feature.properties['Style'] !== null ? autolinker.link(String(feature.properties['Style']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Land use type (Primary)</th>\
+                        <td class="visible-with-data" id="Land use type (Primary)">' + (feature.properties['Land use type (Primary)'] !== null ? autolinker.link(String(feature.properties['Land use type (Primary)']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Cause of movement</th>\
+                        <td class="visible-with-data" id="Cause of movement">' + (feature.properties['Cause of movement'] !== null ? autolinker.link(String(feature.properties['Cause of movement']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Overall risk intensity of the site</th>\
+                        <td class="visible-with-data" id="Overall risk intensity of the site">' + (feature.properties['Overall risk intensity of the site'] !== null ? autolinker.link(String(feature.properties['Overall risk intensity of the site']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Camp11_TeamC_Landslide_Extraction_20261017_061619_15_0() {
+            return {
+                pane: 'pane_Camp11_TeamC_Landslide_Extraction_20261017_061619_15',
+                radius: 5.0,
+                opacity: 1,
+                color: 'rgba(255,255,255,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(142,243,28,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Camp11_TeamC_Landslide_Extraction_20261017_061619_15');
+        map.getPane('pane_Camp11_TeamC_Landslide_Extraction_20261017_061619_15').style.zIndex = 415;
+        map.getPane('pane_Camp11_TeamC_Landslide_Extraction_20261017_061619_15').style['mix-blend-mode'] = 'normal';
+        var layer_Camp11_TeamC_Landslide_Extraction_20261017_061619_15 = new L.geoJson(json_Camp11_TeamC_Landslide_Extraction_20261017_061619_15, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Camp11_TeamC_Landslide_Extraction_20261017_061619_15',
+            layerName: 'layer_Camp11_TeamC_Landslide_Extraction_20261017_061619_15',
+            pane: 'pane_Camp11_TeamC_Landslide_Extraction_20261017_061619_15',
+            onEachFeature: pop_Camp11_TeamC_Landslide_Extraction_20261017_061619_15,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Camp11_TeamC_Landslide_Extraction_20261017_061619_15_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Camp11_TeamC_Landslide_Extraction_20261017_061619_15);
+        map.addLayer(layer_Camp11_TeamC_Landslide_Extraction_20261017_061619_15);
+        var overlaysTree = [
+            {label: '<img src="legend/Camp11_TeamC_Landslide_Extraction_20261017_061619_15.png" /> Camp11_TeamC_Landslide_Extraction_20261017_061619', layer: layer_Camp11_TeamC_Landslide_Extraction_20261017_061619_15},
+            {label: '<img src="legend/Camp20_TeamA_Landslide_Extraction_20261015_130315_14.png" /> Camp20_TeamA_Landslide_Extraction_20261015_130315', layer: layer_Camp20_TeamA_Landslide_Extraction_20261015_130315_14},
+            {label: '<img src="legend/Camp18_Team_E_Landslide_Extraction_20261015_121454_13.png" /> Camp18_Team_E_Landslide_Extraction_20261015_121454', layer: layer_Camp18_Team_E_Landslide_Extraction_20261015_121454_13},
+            {label: '<img src="legend/Camp17_TeamA_Landslide_Extraction_20261015_131922_12.png" /> Camp17_TeamA_Landslide_Extraction_20261015_131922', layer: layer_Camp17_TeamA_Landslide_Extraction_20261015_131922_12},
+            {label: '<img src="legend/Camp_20Ext_Team_B_Landslide_Extraction_20261015_112826_11.png" /> Camp_20Ext_Team_B_Landslide_Extraction_20261015_112826', layer: layer_Camp_20Ext_Team_B_Landslide_Extraction_20261015_112826_11},
+            {label: '<img src="legend/Camp_19_TeamC_Landslide_Extraction_20261015_125513_10.png" /> Camp_19_TeamC_Landslide_Extraction_20261015_125513', layer: layer_Camp_19_TeamC_Landslide_Extraction_20261015_125513_10},
+            {label: '<img src="legend/Camp14_Team_B_Landslide_Extraction_20261015_115632_9.png" /> Camp14_Team_B_Landslide_Extraction_20261015_115632', layer: layer_Camp14_Team_B_Landslide_Extraction_20261015_115632_9},
+            {label: '<img src="legend/Camp_14_Team_B_Landslide_Extraction_20261015_115810_8.png" /> Camp_14_Team_B_Landslide_Extraction_20261015_115810', layer: layer_Camp_14_Team_B_Landslide_Extraction_20261015_115810_8},
+            {label: '<img src="legend/Camp_10_Team_B_Landslide_Extraction_20261015_112357_7.png" /> Camp_10_Team_B_Landslide_Extraction_20261015_112357', layer: layer_Camp_10_Team_B_Landslide_Extraction_20261015_112357_7},
+            {label: '<img src="legend/Camp_9_Team_B_Landslide_Extraction_20261015_113229_6.png" /> Camp_9_Team_B_Landslide_Extraction_20261015_113229', layer: layer_Camp_9_Team_B_Landslide_Extraction_20261015_113229_6},
+            {label: '<img src="legend/Camp_8W__Team_E_Landslide_Extraction_20261015_111127_5.png" /> Camp_8W__Team_E_Landslide_Extraction_20261015_111127', layer: layer_Camp_8W__Team_E_Landslide_Extraction_20261015_111127_5},
+            {label: '<img src="legend/Camp_7_Team_B_Landslide_Extraction_20261015_113811_4.png" /> Camp_7_Team_B_Landslide_Extraction_20261015_113811', layer: layer_Camp_7_Team_B_Landslide_Extraction_20261015_113811_4},
+            {label: '<img src="legend/Camp_5_Team_E_Landslide_Extraction_20261015_123333_3.png" /> Camp_5_Team_E_Landslide_Extraction_20261015_123333', layer: layer_Camp_5_Team_E_Landslide_Extraction_20261015_123333_3},
+            {label: '<img src="legend/Rohingya_Camp_1984_projection_2.png" /> Rohingya_Camp_1984_projection', layer: layer_Rohingya_Camp_1984_projection_2},
+            {label: '<img src="legend/Rohingya_Camp_1984_projectionshp_1.png" /> Rohingya_Camp_1984_projection.shp', layer: layer_Rohingya_Camp_1984_projectionshp_1},
+            {label: "ESRI Satellite", layer: layer_ESRISatellite_0, radioGroup: 'bm' },]
+        var lay = L.control.layers.tree(null, overlaysTree,{
+            //namedToggle: true,
+            //selectorBack: false,
+            //closedSymbol: '&#8862; &#x1f5c0;',
+            //openedSymbol: '&#8863; &#x1f5c1;',
+            //collapseAll: 'Collapse all',
+            //expandAll: 'Expand all',
+            collapsed: false, 
+        });
+        lay.addTo(map);
+		document.addEventListener("DOMContentLoaded", function() {
+            // set new Layers List height which considers toggle icon
+            function newLayersListHeight() {
+                var layerScrollbarElement = document.querySelector('.leaflet-control-layers-scrollbar');
+                if (layerScrollbarElement) {
+                    var layersListElement = document.querySelector('.leaflet-control-layers-list');
+                    var originalHeight = layersListElement.style.height 
+                        || window.getComputedStyle(layersListElement).height;
+                    var newHeight = parseFloat(originalHeight) - 50;
+                    layersListElement.style.height = newHeight + 'px';
+                }
+            }
+            var isLayersListExpanded = true;
+            var controlLayersElement = document.querySelector('.leaflet-control-layers');
+            var toggleLayerControl = document.querySelector('.leaflet-control-layers-toggle');
+            // toggle Collapsed/Expanded and apply new Layers List height
+            toggleLayerControl.addEventListener('click', function() {
+                if (isLayersListExpanded) {
+                    controlLayersElement.classList.remove('leaflet-control-layers-expanded');
+                } else {
+                    controlLayersElement.classList.add('leaflet-control-layers-expanded');
+                }
+                isLayersListExpanded = !isLayersListExpanded;
+                newLayersListHeight()
+            });	
+			// apply new Layers List height if toggle layerstree
+			if (controlLayersElement) {
+				controlLayersElement.addEventListener('click', function(event) {
+					var toggleLayerHeaderPointer = event.target.closest('.leaflet-layerstree-header-pointer span');
+					if (toggleLayerHeaderPointer) {
+						newLayersListHeight();
+					}
+				});
+			}
+            // Collapsed/Expanded at Start to apply new height
+            setTimeout(function() {
+                toggleLayerControl.click();
+            }, 10);
+            setTimeout(function() {
+                toggleLayerControl.click();
+            }, 10);
+            // Collapsed touch/small screen
+            var isSmallScreen = window.innerWidth < 650;
+            if (isSmallScreen) {
+                setTimeout(function() {
+                    controlLayersElement.classList.remove('leaflet-control-layers-expanded');
+                    isLayersListExpanded = !isLayersListExpanded;
+                }, 500);
+            }  
+        });       
+        setBounds();
+        </script>
+    <style>
+  .map-brand {
+    position: fixed; left: 12px; bottom: 24px; z-index: 9999;
+    display: flex; align-items: center; gap: 18px;
+    background: #ffffff; padding: 10px 18px;
+    border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  }
+  .map-brand img { display: block; width: auto; }
+  .map-brand img.fao { height: 42px; }
+  .map-brand img.cegis { height: 28px; }
+  .map-brand .sep { width: 1px; height: 34px; background: #d0d0d0; }
+
+  @media (max-width: 600px) {
+    .map-brand { left: 6px; bottom: 20px; gap: 10px; padding: 6px 10px; }
+    .map-brand img.fao { height: 26px; }
+    .map-brand img.cegis { height: 20px; }
+    .map-brand .sep { height: 22px; }
+  }
+</style>
+
+<div class="map-brand">
+  <img class="fao" src="fao_logo.png" alt="Food and Agriculture Organization of the United Nations">
+  <span class="sep"></span>
+  <img class="cegis" src="cegis_logo.png" alt="CEGIS">
+</div></body>
+</html>
+
